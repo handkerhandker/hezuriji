@@ -1,73 +1,31 @@
-# React + TypeScript + Vite
+# 合租日记 · hezuriji
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AI 小人生活模拟游戏：5 个小人在合租公寓和街区里自主生活，玩家旁观、翻动态、递纸条（短信），不操控任何人。
 
-Currently, two official plugins are available:
+**路线**：规则打底、AI 可插拔。日常骨架由代码结算（零成本、永不崩），大模型只负责"有戏的时刻"（社交、冲突、收到短信、日终反思）——接口已留好（`BrainHook`），默认不接。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 试玩
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+浏览器打开终端里显示的地址即可。键盘：空格暂停 · 1/2 调速 · R 日报 · M 指标。手柄：十字键移焦点 · A 确认 · B 返回 · Start 暂停 · 肩键调速。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 固定验证门（宪法第 3 条，全绿才算过，CI 强制执行）
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+npm run build
+npx tsx scripts/sim-check.mts
+npx tsx scripts/check-walk.mts
+```
+
+- `sim-check`：30 模拟日裸跑，六项退化检查（动作熵/基尼/破产/通胀/NaN/社交孤岛）
+- `check-walk`：走位审计，跟踪一次完整移动，验证连续无瞬移
+
+## 三件套
+
+- `宪法.md`：AI 协作规程（角色、流程、双审计）
+- `交接说明.md`：项目现状、结构、口径、坑
+- `待办.md`：下一单候选

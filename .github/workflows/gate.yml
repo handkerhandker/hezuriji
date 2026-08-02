@@ -1,0 +1,24 @@
+name: 验证门
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: 构建
+        run: npm run build
+      - name: 30 天裸跑退化检查
+        run: npx tsx scripts/sim-check.mts
+      - name: 走位审计
+        run: npx tsx scripts/check-walk.mts
