@@ -67,6 +67,12 @@ export function scoreAction(world: World, agent: Agent, la: LegalAction, rng: Rn
   if (af.cost !== undefined && af.cost > 0 && agent.money < 50) s -= 6;
   // 手头紧时，奢侈类消费（请客/奶茶/外卖）明显降权：请客不能请到破产
   if (af.tags.includes('luxury') && agent.money < 150) s -= 10;
+  // 短信推力：被推了一把的事，权重上浮（推得动就听，推不动拉倒）
+  if (agent.nudge && world.hourTotal < agent.nudge.untilH) {
+    const tag = agent.nudge.tag;
+    const hit = af.tags.includes(tag) || (tag === 'rest' && af.tags.includes('sleep'));
+    if (hit) s += agent.nudge.weight;
+  }
   // 无业 + 手头紧 → 求职压力直线上升
   if (af.jobSeek) s += 20 * (1 - Math.max(0, Math.min(300, agent.money)) / 300);
 

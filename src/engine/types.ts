@@ -75,7 +75,7 @@ export interface Activity {
 export interface FactEntry {
   day: number;
   hour: number;
-  kind: 'chat' | 'treat' | 'rent' | 'wage' | 'hire' | 'miss_work' | 'meal' | 'other';
+  kind: 'chat' | 'treat' | 'rent' | 'wage' | 'hire' | 'miss_work' | 'meal' | 'msg' | 'other';
   withWho?: string;
   amount?: number;
   text: string;
@@ -100,6 +100,8 @@ export interface Agent {
   chatPartners: Record<string, number>; // 关系账：和谁聊过几次（密度指标用）
   drama: number;    // 戏剧温度计（近期有戏事件数，导演层用）
   sleeping: boolean;
+  /** 行为推力：被短信推了一把（输入不是命令，只加权不强制） */
+  nudge: { tag: 'food' | 'rest' | 'work'; weight: number; untilH: number } | null;
 }
 
 export type SalienceKind =
@@ -115,10 +117,21 @@ export interface SimEvent {
   kind:
     | 'act_start' | 'act_done' | 'state' | 'social' | 'treat' | 'wage'
     | 'rent' | 'hire' | 'miss_work' | 'day_end' | 'llm_wake' | 'llm_fallback'
-    | 'milestone';
+    | 'milestone' | 'msg_sent' | 'msg_reply' | 'thought';
   text: string;
   salient?: boolean;
   data?: Record<string, number | string>;
+}
+
+/** 短信往来条目：收件箱里只有"真实电波"（你发的/TA回的），独白不进这里。 */
+export interface SmsEntry {
+  id: number;
+  day: number;
+  hour: number;
+  min: number;
+  agentId: string;
+  dir: 'out' | 'in';
+  text: string;
 }
 
 export interface World {
@@ -133,4 +146,6 @@ export interface World {
   llmWakesToday: number;
   llmFallbacksToday: number;
   seq: number;
+  credits: number;      // 今日短信额度（三叶草经济：稀缺让每条有分量）
+  smsLog: SmsEntry[];   // 往来记录（真实电波）
 }

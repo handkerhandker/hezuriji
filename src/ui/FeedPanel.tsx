@@ -15,11 +15,11 @@ export function FeedPanel({ feed, selectedAgent, agentName }: Props) {
 
   const filtered = feed.filter(e => {
     if (selectedAgent && e.agentId && e.agentId !== selectedAgent) {
-      // 城市级事件（无 agentId）始终显示
+      // 城市级事件与你发的短信（无 agentId）始终显示
       return false;
     }
     if (filter === 'salient') return !!e.salient;
-    if (filter === 'social') return e.kind === 'social' || e.kind === 'treat' || e.kind === 'milestone' || e.kind === 'hire';
+    if (filter === 'social') return ['social', 'treat', 'milestone', 'hire', 'msg_sent', 'msg_reply', 'thought'].includes(e.kind);
     return true;
   });
 
@@ -62,11 +62,17 @@ export function FeedPanel({ feed, selectedAgent, agentName }: Props) {
             className={`rounded px-2 py-1 break-words ${
               e.kind === 'milestone' || e.kind === 'hire'
                 ? 'bg-amber-950/50 text-amber-200 border border-amber-700/50'
-                : e.kind === 'llm_wake'
-                  ? 'bg-violet-950/40 text-violet-300/90'
-                  : e.salient
-                    ? 'bg-slate-700/50 text-slate-200'
-                    : 'text-slate-400'
+                : e.kind === 'thought'
+                  ? 'bg-violet-950/40 text-violet-300/90 italic'
+                  : e.kind === 'msg_sent'
+                    ? 'bg-amber-900/30 text-amber-200/95'
+                    : e.kind === 'msg_reply'
+                      ? 'bg-emerald-950/40 text-emerald-300/95'
+                      : e.kind === 'llm_wake'
+                        ? 'bg-violet-950/40 text-violet-300/90'
+                        : e.salient
+                          ? 'bg-slate-700/50 text-slate-200'
+                          : 'text-slate-400'
             }`}
             style={{ fontSize: 'clamp(11px, 0.9vw, 13px)' }}
           >

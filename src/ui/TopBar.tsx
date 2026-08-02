@@ -12,10 +12,12 @@ interface Props {
   minute: number;
   speed: Speed;
   llmPool: number;
+  credits: number;
   hint: string;
   onSpeed: (s: Speed) => void;
   onOpenReports: () => void;
   onOpenMetrics: () => void;
+  onOpenSms: () => void;
   onSkip: () => void;
 }
 
@@ -73,6 +75,12 @@ export function TopBar(p: Props) {
       </div>
 
       <div className="ms-auto flex items-center gap-1">
+        <button data-pad onClick={p.onOpenSms} className="touch-target focusable relative rounded-lg bg-slate-700/70 px-3 text-slate-200 hover:bg-slate-600" style={{ fontSize: 'clamp(11px, 0.9vw, 13px)' }}>
+          💬 短信
+          <span className={`ms-1 inline-block rounded-full px-1.5 font-mono ${p.credits > 0 ? 'bg-emerald-600/80 text-emerald-50' : 'bg-red-700/80 text-red-100'}`}>
+            {p.credits}
+          </span>
+        </button>
         <button data-pad onClick={p.onOpenReports} className="touch-target focusable rounded-lg bg-slate-700/70 px-3 text-slate-200 hover:bg-slate-600" style={{ fontSize: 'clamp(11px, 0.9vw, 13px)' }}>
           📰 日报
         </button>
