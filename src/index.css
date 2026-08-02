@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+/* ===== 合租日记 · 自适应增强层 ===== */
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    /* 城市夜色底色，任何系统下一致 */
+    background-color: #0b1220;
+    color: #e2e8f0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    /* 流体字号：屏幕多窄都不会把字挤出界 */
+    font-size: clamp(13px, 0.9vw + 0.6vh, 16px);
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 触屏安全区（刘海屏/圆角屏） */
+  .safe-t { padding-top: env(safe-area-inset-top, 0px); }
+  .safe-b { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-l { padding-left: env(safe-area-inset-left, 0px); }
+  .safe-r { padding-right: env(safe-area-inset-right, 0px); }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-slate-700/70 bg-slate-800/60 backdrop-blur-sm min-w-0;
+  }
+  .panel-title {
+    @apply text-slate-400 font-semibold tracking-widest uppercase;
+    font-size: clamp(10px, 0.8vw, 12px);
+  }
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* 键盘/手柄焦点清晰可见，鼠标点击不留圈 */
+  .focusable:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border border-slate-600 px-2 py-0.5 text-slate-300 whitespace-nowrap;
+    font-size: clamp(10px, 0.75vw, 12px);
+  }
+  /* 细滚动条，横竖屏都不抢戏 */
+  .nice-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .nice-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  .nice-scroll { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+}
