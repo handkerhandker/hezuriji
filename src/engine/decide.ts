@@ -73,6 +73,12 @@ export function scoreAction(world: World, agent: Agent, la: LegalAction, rng: Rn
     const hit = af.tags.includes(tag) || (tag === 'rest' && af.tags.includes('sleep'));
     if (hit) s += agent.nudge.weight;
   }
+  // 雨天：街上没事别待着了，家里窝着更香
+  const raining = world.rainUntilH !== null && world.hourTotal < world.rainUntilH;
+  if (raining) {
+    if (af.place === 'street') s -= 6;
+    if (af.place === 'apartment' && (af.tags.includes('rest') || af.tags.includes('social'))) s += 2;
+  }
   // 无业 + 手头紧 → 求职压力直线上升
   if (af.jobSeek) s += 20 * (1 - Math.max(0, Math.min(300, agent.money)) / 300);
 

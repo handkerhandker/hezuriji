@@ -28,6 +28,8 @@ export class Sim {
   /** 待送达的回信（TA 想一会儿才回，不是秒回机器人） */
   private pendingReplies: Array<{ agentId: string; text: string; deliverAt: number }> = [];
   private smsSeq = 0;
+  /** 导演层：上次有戏的时刻（太平静就悄悄投扰动） */
+  private lastDramaH = 7;
 
   constructor(seed: number) {
     this.rng = new Rng(seed);
@@ -41,7 +43,7 @@ export class Sim {
     this.world = {
       seed, day: 1, hour: 7, minute: 0, hourTotal: 7, agents,
       events: [], llmPool: LLM_DAILY_BUDGET, llmWakesToday: 0, llmFallbacksToday: 0, seq: 0,
-      credits: SMS_DAILY_CREDITS, smsLog: [],
+      credits: SMS_DAILY_CREDITS, smsLog: [], rainUntilH: null,
     };
     this.emit('state', undefined, `第 1 天早上，五个人陆续醒来。`);
   }
@@ -59,6 +61,8 @@ export class Sim {
   private maybeWake(agent: Agent, reason: SalienceKind) {
     const w = this.world;
     agent.drama += 1;
+    // 导演层记账：日终反思是例行公事，不算"有戏"
+    if (reason !== 'dayEnd') this.lastDramaH = w.hourTotal;
     if (w.llmPool > 0) {
       w.llmPool -= 1;
       w.llmWakesToday += 1;
@@ -249,6 +253,8 @@ export class Sim {
     // 挨饿和熬穿了会实实在在地砸心情
     if (a.hunger < 15) a.mood = clamp(a.mood - 1.2 * dt);
     if (a.energy < 10) a.mood = clamp(a.mood - 0.8 * dt);
+    // 下雨天还在街上晃，心情打点折扣
+    if (w.rainUntilH !== null && a.location === 'street' && !a.sleeping) a.mood = clamp(a.mood - 0.3 * dt);
   }
 
   private dayRollover() {
@@ -359,6 +365,27 @@ export class Sim {
     }
   }
 
+  /** 导演层：不写剧情，只调节奏。200 分钟没戏 → 每小时 30% 概率下场雨。 */
+  private directorTick() {
+    const w = this.world;
+    // 先判断雨停（正在下雨就直接返回）
+    if (w.rainUntilH !== null) {
+      if (w.hourTotal >= w.rainUntilH) {
+        w.rainUntilH = null;
+        this.emit('weather', undefined, `🌤️ 雨停了。`);
+      }
+      return;
+    }
+    const quietHours = w.hourTotal - this.lastDramaH;
+    // 触发率按本城节奏校准为每小时 12%（citylife 30% 太密，30 天会下 24 场；登记口径见交接说明）
+    if (quietHours >= 200 / 60 && this.rng.chance(0.12 / 6)) { // 摊到 10 分钟步
+      const dur = this.rng.range(90, 140) / 60;
+      w.rainUntilH = w.hourTotal + dur;
+      this.lastDramaH = w.hourTotal;
+      this.emit('weather', undefined, `🌧️ 城里下起了雨（预计 ${Math.round(dur * 60)} 分钟）。雨天适合窝在家里。`, true);
+    }
+  }
+
   /** 推进一个时间步（10 分钟）：时钟是"流"，不是"跳"。 */
   stepTick(dt = 1 / 6) {
     const w = this.world;
@@ -366,6 +393,8 @@ export class Sim {
     for (const a of w.agents) this.stepAgent(a);
     // 短信投递
     this.processInbound();
+    // 导演层盯节奏
+    this.directorTick();
     // 生理漂移（按步长比例）
     for (const a of w.agents) this.driftNeeds(a, dt);
     // 时间前进
