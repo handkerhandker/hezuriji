@@ -22,8 +22,11 @@ const BASE_AFFORDANCES: Affordance[] = [
   // —— 便利店 ——
   { id: 'buy_bento', verb: '买个便当', place: 'store', hours: 1, cost: 15, hunger: 32, tags: ['food'], minMoney: 15 },
   { id: 'buy_snack', verb: '买包零食', place: 'store', hours: 1, cost: 8, hunger: 12, mood: 4, tags: ['food'], minMoney: 8 },
+  // —— 公司 ——
+  { id: 'vending', verb: '自动售货机买零食', place: 'office', hours: 1, cost: 5, hunger: 12, tags: ['food'], minMoney: 5 },
   // —— 街道 ——
   { id: 'wander', verb: '在街上晃', place: 'street', hours: 1, mood: 3, energy: -3, tags: ['rest'] },
+  { id: 'stall_noodle', verb: '路边摊吃碗面', place: 'street', hours: 1, cost: 8, hunger: 20, tags: ['food'], minMoney: -20 }, // 摊主赊账：先吃着，发了工资再还
   { id: 'smoke_break', verb: '楼下抽根烟看手机', place: 'street', hours: 1, mood: 8, tags: ['quirk', 'rest'] },
   { id: 'job_hunt', verb: '投简历找工作', place: 'street', hours: 2, mood: -4, energy: -6, tags: ['errand'], jobSeek: true },
   // —— 通用 ——
@@ -77,8 +80,11 @@ export function legalActions(world: World, agent: Agent): LegalAction[] {
       const soonShift = agent.job.shifts.some(([s, e]) => hf >= s - 1 && hf < e);
       if (soonShift) continue;
     }
-    if (af.minMoney !== undefined && agent.money < af.minMoney) continue;
-    if (af.cost !== undefined && agent.money < af.cost) continue;
+    // 钱包门槛：只有花钱的动作才设卡（白嫖的翻冰箱永远能吃——饿不死是底线）
+    if ((af.cost ?? 0) > 0) {
+      const gate = af.minMoney ?? af.cost!;
+      if (agent.money < gate) continue;
+    }
     if (af.needsCompany && !hasCompany) continue;
     if (af.id === 'job_hunt') {
       if (agent.job) continue;
