@@ -75,9 +75,16 @@ export interface Activity {
 export interface FactEntry {
   day: number;
   hour: number;
-  kind: 'chat' | 'treat' | 'rent' | 'wage' | 'hire' | 'miss_work' | 'meal' | 'msg' | 'other';
+  kind: 'chat' | 'treat' | 'rent' | 'wage' | 'hire' | 'miss_work' | 'meal' | 'msg' | 'loan' | 'other';
   withWho?: string;
   amount?: number;
+  text: string;
+}
+
+/** 主观记忆：各自记"自己听到的版本"，与客观账目（facts）分家。 */
+export interface MemoryEntry {
+  day: number;
+  about?: string;
   text: string;
 }
 
@@ -96,7 +103,8 @@ export interface Agent {
   mood: number;     // 0-100
   money: number;
   activity: Activity | null;
-  facts: FactEntry[];      // 生平履历（结构化账目）
+  facts: FactEntry[];      // 生平履历（结构化账目，客观）
+  memories: MemoryEntry[]; // 主观记忆（各自版本，可能互相矛盾）
   chatPartners: Record<string, number>; // 关系账：和谁聊过几次（密度指标用）
   drama: number;    // 戏剧温度计（近期有戏事件数，导演层用）
   sleeping: boolean;

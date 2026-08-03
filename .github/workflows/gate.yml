@@ -22,5 +22,7 @@ jobs:
         run: npx tsx scripts/sim-check.mts
       - name: 短信系统验证
         run: npx tsx scripts/sms-check.mts
+      - name: 闲聊不对称记忆验证
+        run: npx tsx scripts/chat-check.mts
       - name: 走位审计
         run: npx tsx scripts/check-walk.mts

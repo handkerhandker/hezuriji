@@ -4,6 +4,7 @@ import { inShift, isSleepHour, legalActions, moveAction, travelHours } from './a
 import { ruleDecide, type BrainHook } from './decide';
 import { computeDayMetrics, type DayMetrics } from './metrics';
 import { digestMessage } from './sms';
+import { runChatScene as chatScene } from './chat';
 import { Rng } from './rng';
 
 function clamp(v: number, lo = 0, hi = 100): number {
@@ -38,7 +39,7 @@ export class Sim {
       wish: s.wish, worry: s.worry, job: s.job, home: s.home, location: s.home,
       hunger: this.rng.int(55, 80), energy: this.rng.int(60, 90),
       mood: this.rng.int(45, 70), money: s.money,
-      activity: null, facts: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null, slackToday: false,
+      activity: null, facts: [], memories: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null, slackToday: false,
     }));
     this.world = {
       seed, day: 1, hour: 7, minute: 0, hourTotal: 7, agents,
@@ -99,7 +100,6 @@ export class Sim {
   }
 
   private completeActivity(a: Agent) {
-    const w = this.world;
     const act = a.activity;
     if (!act) return;
     a.activity = null;
@@ -128,25 +128,24 @@ export class Sim {
         this.attendance[a.id] = (this.attendance[a.id] ?? 0) + 1;
       }
     }
-    // 社交结算：拉上同地点的人
+    // 社交结算：拉上同地点的人开一场闲聊（有预算的场景+不对称记忆）
     if (act.tags.includes('social')) {
-      const partner = w.agents.find(x => x.id !== a.id && x.location === a.location && !x.sleeping);
+      const partner = this.pickChatPartner(a);
       if (partner) {
         const treat = act.actionId === 'treat';
         if (treat && fx.cost) {
           partner.hunger = clamp(partner.hunger + 20);
           this.fact(a, 'treat', `请了 ${partner.name} 一顿（-${fx.cost}元）`, partner.name, fx.cost);
           this.fact(partner, 'treat', `${a.name} 请了我一顿`, a.name, fx.cost);
+          a.mood = clamp(a.mood + 4);
+          partner.mood = clamp(partner.mood + 4);
+          a.chatPartners[partner.id] = (a.chatPartners[partner.id] ?? 0) + 1;
+          partner.chatPartners[a.id] = (partner.chatPartners[a.id] ?? 0) + 1;
+          this.emit('social', a.id, `${a.name} 和 ${partner.name} 一起吃了顿（他请客）`, true);
+          partner.drama += 0.5;
         } else {
-          this.fact(a, 'chat', `和 ${partner.name} 唠了会儿`, partner.name);
-          this.fact(partner, 'chat', `和 ${a.name} 唠了会儿`, a.name);
+          this.runChatScene(a, partner);
         }
-        a.mood = clamp(a.mood + 4);
-        partner.mood = clamp(partner.mood + 4);
-        a.chatPartners[partner.id] = (a.chatPartners[partner.id] ?? 0) + 1;
-        partner.chatPartners[a.id] = (partner.chatPartners[a.id] ?? 0) + 1;
-        this.emit('social', a.id, `${a.name} 和 ${partner.name} ${treat ? '一起吃了顿（他请客）' : '唠了会儿嗑'}`, true);
-        partner.drama += 0.5;
       }
     }
     // 求职结算
@@ -339,6 +338,63 @@ export class Sim {
       : w.hourTotal + this.rng.range(1 / 6, 2 / 3);
     this.pendingInbound.push({ agentId, text: clean, deliverAt });
     return true;
+  }
+
+  /** 找闲聊对象：同地点、醒着、且这对组合不在冷却里（90 分钟）。 */
+  private pairCooldown = new Map<string, number>();
+
+  private pickChatPartner(a: Agent): Agent | null {
+    const w = this.world;
+    const candidates = w.agents.filter(x => {
+      if (x.id === a.id || x.location !== a.location || x.sleeping) return false;
+      const key = [a.id, x.id].sort().join('|');
+      return (this.pairCooldown.get(key) ?? 0) <= w.hourTotal;
+    });
+    if (candidates.length === 0) return null;
+    return this.rng.pick(candidates);
+  }
+
+  /** 开一场闲聊：台词上动态流，记忆各记各的，借钱真转账。 */
+  private runChatScene(a: Agent, b: Agent) {
+    const w = this.world;
+    const out = chatScene(w, a, b, this.rng);
+    // 显著性门控：一场对话一次唤醒记账（LLM 挂点，模板先行）
+    if (out.salient) this.maybeWake(a, 'social');
+    // 台词上动态流（有预算的场景：限轮数）
+    for (const line of out.lines) {
+      const speaker = this.agentById(line.who);
+      this.emit('social', line.who, `${speaker?.name ?? line.who}：「${line.text}」`, out.salient);
+    }
+    // 不对称记忆：各自记自己听到的版本
+    for (const [aid, text] of Object.entries(out.memories)) {
+      const who = this.agentById(aid);
+      if (!who) continue;
+      who.memories.push({ day: w.day, text });
+      if (who.memories.length > 30) who.memories.shift();
+      const other = aid === a.id ? b : a;
+      this.fact(who, 'chat', `和 ${other.name} 聊了几句`, other.name);
+    }
+    // 心情与关系
+    a.mood = clamp(a.mood + out.moodA);
+    b.mood = clamp(b.mood + out.moodB);
+    a.chatPartners[b.id] = (a.chatPartners[b.id] ?? 0) + 1;
+    b.chatPartners[a.id] = (b.chatPartners[a.id] ?? 0) + 1;
+    b.drama += 0.5;
+    // 借钱成交：真转账+两边客观账目（硬事实不走记忆）
+    if (out.loan) {
+      const lender = this.agentById(out.loan.from);
+      const borrower = this.agentById(out.loan.to);
+      if (lender && borrower) {
+        lender.money -= out.loan.amount;
+        borrower.money += out.loan.amount;
+        this.fact(lender, 'loan', `借给 ${borrower.name} ${out.loan.amount} 元`, borrower.name, out.loan.amount);
+        this.fact(borrower, 'loan', `找 ${lender.name} 借了 ${out.loan.amount} 元`, lender.name, out.loan.amount);
+        this.emit('milestone', a.id, `💸 ${borrower.name} 找 ${lender.name} 借了 ${out.loan.amount} 元。`, true);
+      }
+    }
+    // 这对组合进入冷却
+    const key = [a.id, b.id].sort().join('|');
+    this.pairCooldown.set(key, w.hourTotal + 1.5);
   }
 
   /** 短信消化：读到 → 独白进日志 + 可能回信 + 可能推一把行为。 */

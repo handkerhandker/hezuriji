@@ -54,7 +54,12 @@ export function AgentsPanel({ agents, selectedId, onSelect }: Props) {
               <div className="mt-1.5 grid grid-cols-1 gap-0.5 text-slate-400" style={{ fontSize: 'clamp(10px, 0.85vw, 12px)' }}>
                 <p className="truncate" title={a.wish}>🌟 心愿：{a.wish}</p>
                 <p className="truncate" title={a.worry}>☁️ 担忧：{a.worry}</p>
-                <p className="truncate">🎭 戏剧温度 {a.drama.toFixed(1)} · 📖 履历 {a.facts.length} 条</p>
+                {a.memories.length > 0 && (
+                  <p className="truncate text-violet-300/80" title={a.memories[a.memories.length - 1].text}>
+                    🧠 最新记忆：{a.memories[a.memories.length - 1].text}
+                  </p>
+                )}
+                <p className="truncate">🎭 戏剧温度 {a.drama.toFixed(1)} · 📖 履历 {a.facts.length} 条 · 记忆 {a.memories.length} 条</p>
               </div>
             </button>
           );
