@@ -38,7 +38,7 @@ export class Sim {
       wish: s.wish, worry: s.worry, job: s.job, home: s.home, location: s.home,
       hunger: this.rng.int(55, 80), energy: this.rng.int(60, 90),
       mood: this.rng.int(45, 70), money: s.money,
-      activity: null, facts: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null,
+      activity: null, facts: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null, slackToday: false,
     }));
     this.world = {
       seed, day: 1, hour: 7, minute: 0, hourTotal: 7, agents,
@@ -162,16 +162,26 @@ export class Sim {
     this.emit('act_done', a.id, `${a.name} ${act.verb} 完了`);
   }
 
-  /** 移动决策：该去上班/回家/找吃的时候先移动（算好提前量，真走过去）。 */
+  /** 移动决策：饿急眼 > 上班 > 睡觉 > 闲逛（饥饿紧急度压过通勤，防两头拉扯）。 */
   private decideMove(a: Agent): Affordance | null {
     const w = this.world;
     const hour = w.hourTotal % 24; // 浮点小时，算提前量更准
+
+    // 饿急眼了：本地吃不起/没得吃，先回家吃饭，班先放一放
+    const localFood = legalActions(w, a).some(l => l.affordance.tags.includes('food'));
+    if (a.hunger < 25 && !localFood && a.location !== a.home) {
+      const dest = a.money >= 15 && !a.traits.includes('thrifty') ? 'store' : a.home;
+      if (a.location !== dest) return moveAction(dest, a.location);
+    }
+
     // 上班：按"路程+一点余量"动身，到单位正好开工
     if (a.job) {
       const needs = travelHours(a.location, a.job.workplace);
       const inS = inShift(a, hour);
       const shiftSoon = a.job.shifts.some(([s, e]) => (hour >= s - needs - 0.1 && hour < e));
-      const wantsSkip = !a.traits.includes('diligent') && a.mood < 30 && this.rng.chance(0.25);
+      // 摆烂判定：真崩了(mood<22)才可能翘班，且每天最多摆一次（保险丝）
+      const wantsSkip = !a.traits.includes('diligent') && a.mood < 22 && !a.slackToday && this.rng.chance(0.25);
+      if (wantsSkip) a.slackToday = true;
       if ((inS || shiftSoon) && a.location !== a.job.workplace && !wantsSkip) {
         return moveAction(a.job.workplace, a.location);
       }
@@ -193,8 +203,7 @@ export class Sim {
     if (!a.job && hour >= 9 && hour <= 15 && a.money < 200 && a.location !== 'street' && this.rng.chance(0.6)) {
       return moveAction('street', a.location);
     }
-    // 饿急了而本地没吃的
-    const localFood = legalActions(w, a).some(l => l.affordance.tags.includes('food'));
+    // 不太急但也该吃了：本地没吃的就挪窝
     if (a.hunger < 28 && !localFood) {
       const dest = a.money >= 15 && !a.traits.includes('thrifty') ? 'store' : a.home;
       if (a.location !== dest) return moveAction(dest, a.location);
@@ -247,9 +256,11 @@ export class Sim {
     a.mood = clamp(a.mood + (50 - a.mood) * 0.04 * dt);
     if (a.traits.includes('social')) {
       const alone = !w.agents.some(x => x.id !== a.id && x.location === a.location && !x.sleeping);
-      if (alone && !a.sleeping) a.mood = clamp(a.mood - 0.6 * dt);
+      // 教练带课、店员站柜台都是在跟人打交道，不算独处
+      const withPeople = a.activity && (a.activity.actionId === 'work_coach' || a.activity.actionId === 'work_clerk');
+      if (alone && !withPeople && !a.sleeping) a.mood = clamp(a.mood - 0.6 * dt);
     }
-    if (a.money < 0) a.mood = clamp(a.mood - 0.4 * dt);
+    if (a.money < 0) a.mood = clamp(a.mood - 0.25 * dt); // 欠债压心情，但不往死里压
     // 挨饿和熬穿了会实实在在地砸心情
     if (a.hunger < 15) a.mood = clamp(a.mood - 1.2 * dt);
     if (a.energy < 10) a.mood = clamp(a.mood - 0.8 * dt);
@@ -264,7 +275,7 @@ export class Sim {
       if (!a.job) continue;
       const shiftHours = a.job.shifts.reduce((s, [x, y]) => s + (y - x), 0);
       const attended = this.attendance[a.id] ?? 0;
-      if (attended >= shiftHours * 0.5) {
+      if (attended >= shiftHours * 0.3) {
         const wage = Math.round(a.job.wagePerShift * Math.min(1, attended / shiftHours));
         a.money += wage;
         this.faucetToday += wage;
@@ -290,6 +301,7 @@ export class Sim {
     w.hour = 0;
     w.minute = 0;
     w.credits = SMS_DAILY_CREDITS; // 短信额度 0:00 重置
+    for (const a of w.agents) a.slackToday = false; // 保险丝复位
     w.llmPool = LLM_DAILY_BUDGET;
     w.llmWakesToday = 0;
     w.llmFallbacksToday = 0;

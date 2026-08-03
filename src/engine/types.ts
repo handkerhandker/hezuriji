@@ -102,6 +102,8 @@ export interface Agent {
   sleeping: boolean;
   /** 行为推力：被短信推了一把（输入不是命令，只加权不强制） */
   nudge: { tag: 'food' | 'rest' | 'work'; weight: number; untilH: number } | null;
+  /** 翘班熔断：今天已经摆过烂了（每天最多摆一次，防死亡螺旋） */
+  slackToday: boolean;
 }
 
 export type SalienceKind =

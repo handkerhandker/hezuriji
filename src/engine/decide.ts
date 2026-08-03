@@ -43,12 +43,13 @@ export function scoreAction(world: World, agent: Agent, la: LegalAction, rng: Rn
   if (af.tags.includes('work')) {
     const inS = inShift(agent, world.hour);
     const diligent = agent.traits.includes('diligent');
-    if (inS) s += diligent ? 34 : 24;
+    if (inS) s += diligent ? 34 : 28;
     else s += 2;
     // 心情差时非勤勉的人可能翘班
-    if (inS && !diligent && agent.mood < 35) s -= 14;
-    // 欠债时工作更重要
-    if (inS && agent.money < 0) s += 8;
+    if (inS && !diligent && agent.mood < 35) s -= 8;
+    // 钱越紧，上班越要紧（下月房租在盯着）
+    if (inS && agent.money < 450) s += 4;
+    if (inS && agent.money < 0) s += 6;
   }
   // 性格加成
   if (agent.traits.includes('lavish') && af.tags.includes('luxury')) s += 5;
