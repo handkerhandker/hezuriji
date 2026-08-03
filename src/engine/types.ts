@@ -117,7 +117,7 @@ export interface SimEvent {
   kind:
     | 'act_start' | 'act_done' | 'state' | 'social' | 'treat' | 'wage'
     | 'rent' | 'hire' | 'miss_work' | 'day_end' | 'llm_wake' | 'llm_fallback'
-    | 'milestone' | 'msg_sent' | 'msg_reply' | 'thought';
+    | 'milestone' | 'msg_sent' | 'msg_reply' | 'thought' | 'weather';
   text: string;
   salient?: boolean;
   data?: Record<string, number | string>;
@@ -148,4 +148,5 @@ export interface World {
   seq: number;
   credits: number;      // 今日短信额度（三叶草经济：稀缺让每条有分量）
   smsLog: SmsEntry[];   // 往来记录（真实电波）
+  rainUntilH: number | null; // 导演层：下雨到这个时刻（null=没在下雨）
 }

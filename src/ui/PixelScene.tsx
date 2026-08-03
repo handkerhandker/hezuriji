@@ -96,6 +96,27 @@ export function PixelScene({ world, selectedId, onSelect }: Props) {
       ctx.fillStyle = nightOverlay(w.hour);
       ctx.fillRect(0, 0, SCENE_W, SCENE_H);
 
+      // 雨幕（导演层）：斜线阵，随时间下落
+      if (w.rainUntilH !== null && w.hourTotal < w.rainUntilH) {
+        ctx.fillStyle = 'rgba(56, 130, 246, 0.08)';
+        ctx.fillRect(0, 0, SCENE_W, SCENE_H);
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.35)';
+        ctx.lineWidth = 2;
+        const offset = (t / 8) % 40;
+        for (let x = -40; x < SCENE_W + 40; x += 28) {
+          const xx = x + (offset * 0.6) % 28;
+          const yy = offset % 40;
+          ctx.beginPath();
+          ctx.moveTo(xx, yy - 20);
+          ctx.lineTo(xx - 10, yy + 22);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(xx + 14, yy + 180);
+          ctx.lineTo(xx + 4, yy + 222);
+          ctx.stroke();
+        }
+      }
+
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);

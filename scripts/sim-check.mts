@@ -51,6 +51,7 @@ const socialPairs = sim.metricsHistory[sim.metricsHistory.length - 1]?.socialPai
 const allBankrupt = w.agents.every(a => a.money < 0);
 const allRich = w.agents.every(a => a.money > 3000);
 const nanMoney = w.agents.some(a => Number.isNaN(a.money));
+const weatherEvents = w.events.filter(e => e.kind === 'weather').length;
 
 const checks: Array<[string, boolean]> = [
   ['动作熵未塌陷（近7天均值 > 0.35）', avgEntropy > 0.35],
@@ -59,6 +60,7 @@ const checks: Array<[string, boolean]> = [
   ['未集体通胀（没人都 3000+）', !allRich],
   ['金钱无 NaN', !nanMoney],
   ['社交未孤岛化（对数 > 0）', socialPairs > 0],
+  ['导演层下雨有触发且不失控（2~40 条）', weatherEvents >= 2 && weatherEvents <= 40],
 ];
 let fail = 0;
 for (const [name, ok] of checks) {
