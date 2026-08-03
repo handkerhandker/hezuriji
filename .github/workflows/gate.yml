@@ -20,5 +20,7 @@ jobs:
         run: npm run build
       - name: 30 天裸跑退化检查
         run: npx tsx scripts/sim-check.mts
+      - name: 短信系统验证
+        run: npx tsx scripts/sms-check.mts
       - name: 走位审计
         run: npx tsx scripts/check-walk.mts

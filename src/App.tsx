@@ -8,9 +8,10 @@ import { AgentsPanel } from './ui/AgentsPanel';
 import { FeedPanel } from './ui/FeedPanel';
 import { MetricsPanel } from './ui/MetricsPanel';
 import { DayReportModal } from './ui/DayReportModal';
+import { SmsModal } from './ui/SmsModal';
 
 type MobileTab = 'scene' | 'agents' | 'feed' | 'data';
-type Modal = 'report' | 'metrics' | null;
+type Modal = 'report' | 'metrics' | 'sms' | null;
 
 const MOBILE_TABS: Array<{ k: MobileTab; label: string; icon: string }> = [
   { k: 'scene', label: '场景', icon: '🏠' },
@@ -20,7 +21,7 @@ const MOBILE_TABS: Array<{ k: MobileTab; label: string; icon: string }> = [
 ];
 
 export default function App() {
-  const { snap, setSpeed, skipToMorning, sim } = useSim();
+  const { snap, setSpeed, skipToMorning, sim, sendSms } = useSim();
   const inputKind = useLastInput();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('scene');
@@ -34,7 +35,12 @@ export default function App() {
     setSpeed(order[Math.max(0, Math.min(2, i + d))]);
   }, [speed, setSpeed]);
 
-  // —— 键盘 ——
+  // 审计/演示用：?demo=sms|report|metrics 直接打开对应弹窗
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('demo');
+    if (q === 'sms' || q === 'report' || q === 'metrics') setModal(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -43,6 +49,7 @@ export default function App() {
       else if (e.key === '2') setSpeed(2);
       else if (e.key === 'r' || e.key === 'R') setModal(m => (m === 'report' ? null : 'report'));
       else if (e.key === 'm' || e.key === 'M') setModal(m => (m === 'metrics' ? null : 'metrics'));
+      else if (e.key === 't' || e.key === 'T') setModal(m => (m === 'sms' ? null : 'sms'));
       else if (e.key === 'Escape') { setModal(null); setSelectedAgent(null); }
     };
     window.addEventListener('keydown', onKey);
@@ -65,10 +72,12 @@ export default function App() {
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-950 text-slate-200">
       <TopBar
         day={w.day} hour={w.hour} minute={w.minute} speed={speed} llmPool={snap.llmPool}
+        credits={w.credits}
         hint={INPUT_HINTS[inputKind]}
         onSpeed={setSpeed}
         onOpenReports={() => setModal('report')}
         onOpenMetrics={() => setModal('metrics')}
+        onOpenSms={() => setModal('sms')}
         onSkip={skipToMorning}
       />
 
@@ -122,6 +131,7 @@ export default function App() {
         ))}
       </nav>
 
+      {modal === 'sms' && <SmsModal world={w} onSend={sendSms} onClose={() => setModal(null)} />}
       {modal === 'report' && <DayReportModal reports={snap.reports} onClose={() => setModal(null)} />}
       {modal === 'metrics' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="城市指标"

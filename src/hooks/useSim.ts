@@ -60,7 +60,14 @@ export function useSim(seed = 20260802) {
     push(speedRef.current);
   }, [sim, push]);
 
-  return { snap, setSpeed, stepOnce, skipToMorning, sim };
+  // 发短信（引擎消化层：回不回、听不听看 TA）
+  const sendSms = useCallback((agentId: string, text: string): boolean => {
+    const ok = sim.sendMessage(agentId, text);
+    push(speedRef.current);
+    return ok;
+  }, [sim, push]);
+
+  return { snap, setSpeed, stepOnce, skipToMorning, sim, sendSms };
 }
 
 function buildSnap(sim: Sim, speed: Speed): SimSnapshot {

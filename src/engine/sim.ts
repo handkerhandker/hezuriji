@@ -3,11 +3,14 @@ import { AGENT_SEEDS, JOBS, LLM_DAILY_BUDGET, RENT_AMOUNT, RENT_DAY_INTERVAL } f
 import { inShift, isSleepHour, legalActions, moveAction, travelHours } from './actions';
 import { ruleDecide, type BrainHook } from './decide';
 import { computeDayMetrics, type DayMetrics } from './metrics';
+import { digestMessage } from './sms';
 import { Rng } from './rng';
 
 function clamp(v: number, lo = 0, hi = 100): number {
   return Math.max(lo, Math.min(hi, v));
 }
+
+export const SMS_DAILY_CREDITS = 3; // 每日短信额度（三叶草经济）
 
 /** 一座城。所有变化走事件日志，同种子可精确重放。 */
 export class Sim {
@@ -20,6 +23,11 @@ export class Sim {
   sinkToday = 0;
   /** 每日指标历史（事件溯源之外的可观测性） */
   metricsHistory: DayMetrics[] = [];
+  /** 待投递的短信（睡觉时等醒来再消化） */
+  private pendingInbound: Array<{ agentId: string; text: string; deliverAt: number }> = [];
+  /** 待送达的回信（TA 想一会儿才回，不是秒回机器人） */
+  private pendingReplies: Array<{ agentId: string; text: string; deliverAt: number }> = [];
+  private smsSeq = 0;
 
   constructor(seed: number) {
     this.rng = new Rng(seed);
@@ -28,11 +36,12 @@ export class Sim {
       wish: s.wish, worry: s.worry, job: s.job, home: s.home, location: s.home,
       hunger: this.rng.int(55, 80), energy: this.rng.int(60, 90),
       mood: this.rng.int(45, 70), money: s.money,
-      activity: null, facts: [], chatPartners: {}, drama: 0, sleeping: false,
+      activity: null, facts: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null,
     }));
     this.world = {
       seed, day: 1, hour: 7, minute: 0, hourTotal: 7, agents,
       events: [], llmPool: LLM_DAILY_BUDGET, llmWakesToday: 0, llmFallbacksToday: 0, seq: 0,
+      credits: SMS_DAILY_CREDITS, smsLog: [],
     };
     this.emit('state', undefined, `第 1 天早上，五个人陆续醒来。`);
   }
@@ -274,6 +283,7 @@ export class Sim {
     w.day += 1;
     w.hour = 0;
     w.minute = 0;
+    w.credits = SMS_DAILY_CREDITS; // 短信额度 0:00 重置
     w.llmPool = LLM_DAILY_BUDGET;
     w.llmWakesToday = 0;
     w.llmFallbacksToday = 0;
@@ -295,11 +305,67 @@ export class Sim {
     }
   }
 
+  /** 玩家给小人发短信。返回 false = 额度用尽/收件人不存在。 */
+  sendMessage(agentId: string, text: string): boolean {
+    const w = this.world;
+    const a = this.agentById(agentId);
+    if (!a || w.credits <= 0) return false;
+    const clean = text.trim().slice(0, 50);
+    if (!clean) return false;
+    w.credits -= 1;
+    w.smsLog.push({ id: ++this.smsSeq, day: w.day, hour: w.hour, min: w.minute, agentId, dir: 'out', text: clean });
+    this.emit('msg_sent', undefined, `你 给 ${a.name} 发了条短信：「${clean}」`, true);
+    // 睡觉的等醒来再消化；醒着的过 10-40 分钟看到
+    const deliverAt = a.sleeping && a.activity
+      ? a.activity.untilHour
+      : w.hourTotal + this.rng.range(1 / 6, 2 / 3);
+    this.pendingInbound.push({ agentId, text: clean, deliverAt });
+    return true;
+  }
+
+  /** 短信消化：读到 → 独白进日志 + 可能回信 + 可能推一把行为。 */
+  private processInbound() {
+    const w = this.world;
+    const due = this.pendingInbound.filter(p => p.deliverAt <= w.hourTotal);
+    this.pendingInbound = this.pendingInbound.filter(p => p.deliverAt > w.hourTotal);
+    for (const p of due) {
+      const a = this.agentById(p.agentId);
+      if (!a) continue;
+      // 收到消息 = 有戏的时刻（显著性门控记账，LLM 挂点）
+      this.maybeWake(a, 'message');
+      const r = digestMessage(a, p.text, this.rng, {
+        inShift: a.job ? inShift(a, w.hour) : false,
+        sleeping: a.sleeping,
+      });
+      this.emit('thought', a.id, `💭 ${a.name}：${r.monologue}`, true);
+      if (r.moodDelta) a.mood = clamp(a.mood + r.moodDelta);
+      if (r.nudge) a.nudge = { tag: r.nudge.tag, weight: r.nudge.weight, untilH: w.hourTotal + r.nudge.hours };
+      this.fact(a, 'msg', `收到你的短信：「${p.text}」`);
+      if (r.reply) {
+        // 回信也要想一会儿，10-40 分钟后送达
+        this.pendingReplies.push({ agentId: a.id, text: r.reply, deliverAt: w.hourTotal + this.rng.range(1 / 6, 2 / 3) });
+      } else {
+        this.fact(a, 'msg', `看了你的短信，没回`);
+      }
+    }
+    // 回信送达
+    const dueR = this.pendingReplies.filter(p => p.deliverAt <= w.hourTotal);
+    this.pendingReplies = this.pendingReplies.filter(p => p.deliverAt > w.hourTotal);
+    for (const p of dueR) {
+      const a = this.agentById(p.agentId);
+      if (!a) continue;
+      w.smsLog.push({ id: ++this.smsSeq, day: w.day, hour: w.hour, min: w.minute, agentId: a.id, dir: 'in', text: p.text });
+      this.emit('msg_reply', a.id, `${a.name} 回你：「${p.text}」`, true);
+    }
+  }
+
   /** 推进一个时间步（10 分钟）：时钟是"流"，不是"跳"。 */
   stepTick(dt = 1 / 6) {
     const w = this.world;
     // 先让所有人行动/结算
     for (const a of w.agents) this.stepAgent(a);
+    // 短信投递
+    this.processInbound();
     // 生理漂移（按步长比例）
     for (const a of w.agents) this.driftNeeds(a, dt);
     // 时间前进
