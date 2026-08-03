@@ -41,7 +41,8 @@ export function generateDayReport(w: World, day: number): DayReport {
       .map(([v, c]) => (c > 1 ? `${v}×${c}` : v)).join('、');
     const notable = a.facts.filter(f => f.day === day && f.kind !== 'meal')
       .map(f => f.text).slice(-2);
-    const digest = [top || '安安静静过了一天', ...notable].join('；');
+    const diary = a.diaries.find(d => d.day === day);
+    const digest = [top || '安安静静过了一天', ...notable, ...(diary ? [`日记："${diary.text}"`] : [])].join('；');
     return { name: a.name, digest, words: stateWords(a) };
   });
 

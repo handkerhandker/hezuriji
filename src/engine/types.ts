@@ -105,6 +105,7 @@ export interface Agent {
   activity: Activity | null;
   facts: FactEntry[];      // 生平履历（结构化账目，客观）
   memories: MemoryEntry[]; // 主观记忆（各自版本，可能互相矛盾）
+  diaries: Array<{ day: number; text: string }>; // 睡前日记（每晚 21:50 一篇）
   chatPartners: Record<string, number>; // 关系账：和谁聊过几次（密度指标用）
   drama: number;    // 戏剧温度计（近期有戏事件数，导演层用）
   sleeping: boolean;
@@ -127,7 +128,7 @@ export interface SimEvent {
   kind:
     | 'act_start' | 'act_done' | 'state' | 'social' | 'treat' | 'wage'
     | 'rent' | 'hire' | 'miss_work' | 'day_end' | 'llm_wake' | 'llm_fallback'
-    | 'milestone' | 'msg_sent' | 'msg_reply' | 'thought' | 'weather';
+    | 'milestone' | 'msg_sent' | 'msg_reply' | 'thought' | 'weather' | 'diary';
   text: string;
   salient?: boolean;
   data?: Record<string, number | string>;

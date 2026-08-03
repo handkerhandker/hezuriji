@@ -24,5 +24,7 @@ jobs:
         run: npx tsx scripts/sms-check.mts
       - name: 闲聊不对称记忆验证
         run: npx tsx scripts/chat-check.mts
+      - name: 睡前日记验证
+        run: npx tsx scripts/diary-check.mts
       - name: 走位审计
         run: npx tsx scripts/check-walk.mts

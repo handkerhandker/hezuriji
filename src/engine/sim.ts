@@ -5,6 +5,7 @@ import { ruleDecide, type BrainHook } from './decide';
 import { computeDayMetrics, type DayMetrics } from './metrics';
 import { digestMessage } from './sms';
 import { runChatScene as chatScene } from './chat';
+import { writeDiary } from './diary';
 import { Rng } from './rng';
 
 function clamp(v: number, lo = 0, hi = 100): number {
@@ -39,7 +40,7 @@ export class Sim {
       wish: s.wish, worry: s.worry, job: s.job, home: s.home, location: s.home,
       hunger: this.rng.int(55, 80), energy: this.rng.int(60, 90),
       mood: this.rng.int(45, 70), money: s.money,
-      activity: null, facts: [], memories: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null, slackToday: false,
+      activity: null, facts: [], memories: [], diaries: [], chatPartners: {}, drama: 0, sleeping: false, nudge: null, slackToday: false,
     }));
     this.world = {
       seed, day: 1, hour: 7, minute: 0, hourTotal: 7, agents,
@@ -288,8 +289,6 @@ export class Sim {
     }
     this.attendance = {};
 
-    // 日终反思时刻（每个小人一次 LLM 位的日总结，记账）
-    for (const a of w.agents) this.maybeWake(a, 'dayEnd');
     this.emit('day_end', undefined, `—— 第 ${w.day} 天结束 ——`);
 
     // 指标落盘（在重置计数器之前）
@@ -454,6 +453,25 @@ export class Sim {
     }
   }
 
+  /** 睡前日记：每晚 21:50，每人一篇（触发时锁时间戳；LLM 挂点=每人一次唤醒记账）。 */
+  private lastDiaryDay = 0;
+
+  private diaryTick() {
+    const w = this.world;
+    // 窗口制触发：21:50–21:59 之间到点即写（浮点漂移多少分钟都不怕），每日一次
+    const todMin = Math.floor((w.hourTotal % 24) * 60 + 0.5) % 1440;
+    if (todMin < 1310 || todMin >= 1320) return;
+    if (this.lastDiaryDay === w.day) return;
+    this.lastDiaryDay = w.day;
+    for (const a of w.agents) {
+      this.maybeWake(a, 'dayEnd');
+      const text = writeDiary(a, w, this.rng);
+      a.diaries.push({ day: w.day, text });
+      if (a.diaries.length > 14) a.diaries.shift();
+      this.emit('diary', a.id, `📔 ${a.name} 的睡前日记：${text}`, true);
+    }
+  }
+
   /** 推进一个时间步（10 分钟）：时钟是"流"，不是"跳"。 */
   stepTick(dt = 1 / 6) {
     const w = this.world;
@@ -461,6 +479,8 @@ export class Sim {
     for (const a of w.agents) this.stepAgent(a);
     // 短信投递
     this.processInbound();
+    // 睡前日记（21:50）
+    this.diaryTick();
     // 导演层盯节奏
     this.directorTick();
     // 生理漂移（按步长比例）
@@ -468,8 +488,9 @@ export class Sim {
     // 时间前进
     const prevDay = Math.floor(w.hourTotal / 24);
     w.hourTotal += dt;
-    w.hour = Math.floor(w.hourTotal % 24);
-    w.minute = Math.floor((w.hourTotal % 24) * 60) % 60;
+    const todMin = Math.floor((w.hourTotal % 24) * 60 + 0.5) % 1440;
+    w.hour = Math.floor(todMin / 60);
+    w.minute = todMin % 60;
     if (Math.floor(w.hourTotal / 24) > prevDay) this.dayRollover();
   }
 
